@@ -23,6 +23,17 @@ resource "datadog_dashboard" "rds" {
 
   widget {
     timeseries_definition {
+      title = "Aurora Replica Lag"
+
+      request {
+        q            = "avg:aws.rds.aurora_replica_lag{$rds_name, $environment} by {hostname}"
+        display_type = "area"
+      }
+    }
+  }
+
+  widget {
+    timeseries_definition {
       title = "Bin Log Disk Usage"
 
       request {
@@ -34,10 +45,10 @@ resource "datadog_dashboard" "rds" {
 
   widget {
     timeseries_definition {
-      title = "Burst Balance"
+      title = "Buffer Cache Hit Ratio"
 
       request {
-        q            = "avg:aws.rds.burst_balance{$rds_name, $environment} by {hostname}"
+        q            = "avg:aws.rds.buffer_cache_hit_ratio{$rds_name, $environment} by {hostname}"
         display_type = "area"
       }
     }
@@ -71,17 +82,6 @@ resource "datadog_dashboard" "rds" {
 
       request {
         q            = "avg:aws.rds.disk_queue_depth{$rds_name, $environment} by {hostname}"
-        display_type = "area"
-      }
-    }
-  }
-
-  widget {
-    timeseries_definition {
-      title = "Free Storage Space"
-
-      request {
-        q            = "avg:aws.rds.free_storage_space{$rds_name, $environment} by {hostname}"
         display_type = "area"
       }
     }
@@ -177,10 +177,10 @@ resource "datadog_dashboard" "rds" {
 
   widget {
     timeseries_definition {
-      title = "Replica Lag"
+      title = "RDS to Aurora Replica Lag"
 
       request {
-        q            = "avg:aws.rds.replica_lag{$rds_name, $environment} by {hostname}"
+        q            = "avg:aws.rds.rdsto_aurora_postgre_sqlreplica_lag{$rds_name, $environment} by {hostname}"
         display_type = "area"
       }
     }
@@ -243,6 +243,28 @@ resource "datadog_dashboard" "rds" {
 
   widget {
     timeseries_definition {
+      title = "Volume Read IOPS"
+
+      request {
+        q            = "avg:aws.rds.volume_read_iops{$rds_name, $environment} by {hostname}"
+        display_type = "area"
+      }
+    }
+  }
+
+  widget {
+    timeseries_definition {
+      title = "Volume Write IOPS"
+
+      request {
+        q            = "avg:aws.rds.volume_write_iops{$rds_name, $environment} by {hostname}"
+        display_type = "area"
+      }
+    }
+  }
+
+  widget {
+    timeseries_definition {
       title = "Write IOPS"
 
       request {
@@ -290,30 +312,6 @@ module "monitor_cpu_usage" {
   thresholds         = var.cpu_usage_thresholds
   message            = var.cpu_usage_message
   escalation_message = var.cpu_usage_escalation_message
-
-  recipients         = var.recipients
-  alert_recipients   = var.alert_recipients
-  warning_recipients = var.warning_recipients
-
-  renotify_interval = var.renotify_interval
-  notify_audit      = var.notify_audit
-}
-
-module "monitor_free_storage_percentage" {
-  source  = "github.com/traveloka/terraform-datadog-monitor?ref=v0.2.0"
-  enabled = local.monitor_enabled
-
-  product_domain = var.product_domain
-  service        = var.service
-  environment    = var.environment
-  tags           = var.tags
-  timeboard_id   = join(",", datadog_dashboard.rds.*.id)
-
-  name               = "${var.product_domain} - ${var.rds_name} - ${var.environment} - Free Storage Percentage is Low"
-  query              = "avg(last_1h):avg:aws.rds.free_storage_space{name:${var.rds_name}, environment:${var.environment}} by {hostname} * 100 / avg:aws.rds.total_storage_space{name:${var.rds_name}, environment:${var.environment}} by {hostname} <= ${var.free_storage_percentage_thresholds["critical"]}"
-  thresholds         = var.free_storage_percentage_thresholds
-  message            = var.free_storage_percentage_message
-  escalation_message = var.free_storage_percentage_escalation_message
 
   recipients         = var.recipients
   alert_recipients   = var.alert_recipients
