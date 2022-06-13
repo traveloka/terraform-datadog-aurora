@@ -1,24 +1,33 @@
 locals {
-  monitor_enabled = var.enabled && length(var.recipients) > 0 ? true : false
+  monitor_enabled = "${var.enabled && length(var.recipients) > 0 ? 1 : 0}"
 }
 
 resource "datadog_dashboard" "rds" {
-  count = var.enabled ? 1 : 0
-
   title       = "${var.product_domain} - ${var.rds_name} - ${var.environment} - RDS"
   description = "A generated dashboard for RDS"
   layout_type = "ordered"
 
   template_variable {
-    default = var.rds_name
+    default = "${var.rds_name}"
     name    = "rds_name"
     prefix  = "name"
   }
 
   template_variable {
-    default = var.environment
+    default = "${var.environment}"
     name    = "environment"
     prefix  = "environment"
+  }
+
+  widget {
+    timeseries_definition {
+      title = "Aurora Replica Lag"
+
+      request {
+        q            = "avg:aws.rds.aurora_replica_lag{$rds_name, $environment} by {hostname}"
+        display_type = "area"
+      }
+    }
   }
 
   widget {
@@ -34,10 +43,10 @@ resource "datadog_dashboard" "rds" {
 
   widget {
     timeseries_definition {
-      title = "Burst Balance"
+      title = "Buffer Cache Hit Ratio"
 
       request {
-        q            = "avg:aws.rds.burst_balance{$rds_name, $environment} by {hostname}"
+        q            = "avg:aws.rds.buffer_cache_hit_ratio{$rds_name, $environment} by {hostname}"
         display_type = "area"
       }
     }
@@ -71,17 +80,6 @@ resource "datadog_dashboard" "rds" {
 
       request {
         q            = "avg:aws.rds.disk_queue_depth{$rds_name, $environment} by {hostname}"
-        display_type = "area"
-      }
-    }
-  }
-
-  widget {
-    timeseries_definition {
-      title = "Free Storage Space"
-
-      request {
-        q            = "avg:aws.rds.free_storage_space{$rds_name, $environment} by {hostname}"
         display_type = "area"
       }
     }
@@ -177,10 +175,10 @@ resource "datadog_dashboard" "rds" {
 
   widget {
     timeseries_definition {
-      title = "Replica Lag"
+      title = "RDS to Aurora Replica Lag"
 
       request {
-        q            = "avg:aws.rds.replica_lag{$rds_name, $environment} by {hostname}"
+        q            = "avg:aws.rds.rdsto_aurora_postgre_sqlreplica_lag{$rds_name, $environment} by {hostname}"
         display_type = "area"
       }
     }
@@ -243,6 +241,28 @@ resource "datadog_dashboard" "rds" {
 
   widget {
     timeseries_definition {
+      title = "Volume Read IOPS"
+
+      request {
+        q            = "avg:aws.rds.volume_read_iops{$rds_name, $environment} by {hostname}"
+        display_type = "area"
+      }
+    }
+  }
+
+  widget {
+    timeseries_definition {
+      title = "Volume Write IOPS"
+
+      request {
+        q            = "avg:aws.rds.volume_write_iops{$rds_name, $environment} by {hostname}"
+        display_type = "area"
+      }
+    }
+  }
+
+  widget {
+    timeseries_definition {
       title = "Write IOPS"
 
       request {
@@ -276,74 +296,50 @@ resource "datadog_dashboard" "rds" {
 }
 
 module "monitor_cpu_usage" {
-  source  = "github.com/traveloka/terraform-datadog-monitor?ref=v0.2.0"
-  enabled = local.monitor_enabled
+  source  = "github.com/traveloka/terraform-datadog-monitor?ref=v0.1.8"
+  enabled = "${local.monitor_enabled}"
 
-  product_domain = var.product_domain
-  service        = var.service
-  environment    = var.environment
-  tags           = var.tags
-  timeboard_id   = join(",", datadog_dashboard.rds.*.id)
+  product_domain = "${var.product_domain}"
+  service        = "${var.service}"
+  environment    = "${var.environment}"
+  tags           = "${var.tags}"
+  timeboard_id   = "${join(",", datadog_dashboard.rds.*.id)}"
 
   name               = "${var.product_domain} - ${var.rds_name} - ${var.environment} - CPU Usage is High"
   query              = "avg(last_5m):avg:aws.rds.cpuutilization{name:${var.rds_name}, environment:${var.environment}} by {hostname} >= ${var.cpu_usage_thresholds["critical"]}"
-  thresholds         = var.cpu_usage_thresholds
-  message            = var.cpu_usage_message
-  escalation_message = var.cpu_usage_escalation_message
+  thresholds         = "${var.cpu_usage_thresholds}"
+  message            = "${var.cpu_usage_message}"
+  escalation_message = "${var.cpu_usage_escalation_message}"
 
-  recipients         = var.recipients
-  alert_recipients   = var.alert_recipients
-  warning_recipients = var.warning_recipients
+  recipients         = "${var.recipients}"
+  alert_recipients   = "${var.alert_recipients}"
+  warning_recipients = "${var.warning_recipients}"
 
-  renotify_interval = var.renotify_interval
-  notify_audit      = var.notify_audit
-}
-
-module "monitor_free_storage_percentage" {
-  source  = "github.com/traveloka/terraform-datadog-monitor?ref=v0.2.0"
-  enabled = local.monitor_enabled
-
-  product_domain = var.product_domain
-  service        = var.service
-  environment    = var.environment
-  tags           = var.tags
-  timeboard_id   = join(",", datadog_dashboard.rds.*.id)
-
-  name               = "${var.product_domain} - ${var.rds_name} - ${var.environment} - Free Storage Percentage is Low"
-  query              = "avg(last_1h):avg:aws.rds.free_storage_space{name:${var.rds_name}, environment:${var.environment}} by {hostname} * 100 / avg:aws.rds.total_storage_space{name:${var.rds_name}, environment:${var.environment}} by {hostname} <= ${var.free_storage_percentage_thresholds["critical"]}"
-  thresholds         = var.free_storage_percentage_thresholds
-  message            = var.free_storage_percentage_message
-  escalation_message = var.free_storage_percentage_escalation_message
-
-  recipients         = var.recipients
-  alert_recipients   = var.alert_recipients
-  warning_recipients = var.warning_recipients
-
-  renotify_interval = var.renotify_interval
-  notify_audit      = var.notify_audit
+  renotify_interval = "${var.renotify_interval}"
+  notify_audit      = "${var.notify_audit}"
 }
 
 module "monitor_db_connection_count" {
-  source  = "github.com/traveloka/terraform-datadog-monitor?ref=v0.2.0"
-  enabled = local.monitor_enabled
+  source  = "github.com/traveloka/terraform-datadog-monitor?ref=v0.1.8"
+  enabled = "${local.monitor_enabled}"
 
-  product_domain = var.product_domain
-  service        = var.service
-  environment    = var.environment
-  tags           = var.tags
-  timeboard_id   = join(",", datadog_dashboard.rds.*.id)
+  product_domain = "${var.product_domain}"
+  service        = "${var.service}"
+  environment    = "${var.environment}"
+  tags           = "${var.tags}"
+  timeboard_id   = "${join(",", datadog_dashboard.rds.*.id)}"
 
   name               = "${var.product_domain} - ${var.rds_name} - ${var.environment} - DB Connection Count is Low"
   query              = "avg(last_5m):avg:aws.rds.database_connections{name:${var.rds_name}, environment:${var.environment}} by {hostname} <= ${var.db_connection_count_thresholds["critical"]}"
-  thresholds         = var.db_connection_count_thresholds
-  message            = var.db_connection_count_message
-  escalation_message = var.db_connection_count_escalation_message
+  thresholds         = "${var.db_connection_count_thresholds}"
+  message            = "${var.db_connection_count_message}"
+  escalation_message = "${var.db_connection_count_escalation_message}"
 
-  recipients         = var.recipients
-  alert_recipients   = var.alert_recipients
-  warning_recipients = var.warning_recipients
+  recipients         = "${var.recipients}"
+  alert_recipients   = "${var.alert_recipients}"
+  warning_recipients = "${var.warning_recipients}"
 
-  renotify_interval = var.renotify_interval
-  notify_audit      = var.notify_audit
+  renotify_interval = "${var.renotify_interval}"
+  notify_audit      = "${var.notify_audit}"
 }
 
